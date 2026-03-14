@@ -15,7 +15,7 @@ age             : age at surgery (years)
 sex             : Male / Female
 ethnicity       : NZ prioritised ethnicity (NZ European, Māori, Pacific,
                   Asian, MELAA, Other)
-nzDep           : NZ Deprivation Index decile (1 = least deprived, 10 = most)
+nz_dep          : NZ Deprivation Index decile (1 = least deprived, 10 = most)
 dhb             : District Health Board (20 NZ DHBs)
 rural           : Rural resident (bool)
 surgery_type    : type of surgery performed
@@ -33,6 +33,7 @@ daoh90          : days alive and out of hospital in 90 days post-surgery
 died_90d        : died within 90 days (bool)
 readmitted      : at least one readmission within 90 days (bool)
 hospital_days   : total days spent in hospital in the 90-day window
+death_day       : day of death (1–90) if died_90d, else NaN
 """
 
 import argparse
@@ -49,11 +50,18 @@ random.seed(SEED)
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
+_used_nhis: set = set()
+
+
 def _nhi() -> str:
-    """Generate a realistic NZ NHI number (3 letters + 4 digits)."""
-    letters = "".join(random.choices(string.ascii_uppercase, k=3))
-    digits = f"{random.randint(0, 9999):04d}"
-    return letters + digits
+    """Generate a unique realistic NZ NHI number (3 letters + 4 digits)."""
+    while True:
+        letters = "".join(random.choices(string.ascii_uppercase, k=3))
+        digits = f"{random.randint(0, 9999):04d}"
+        nhi = letters + digits
+        if nhi not in _used_nhis:
+            _used_nhis.add(nhi)
+            return nhi
 
 
 NZ_DHBS = [
@@ -207,28 +215,31 @@ def generate_patient(i: int) -> dict:
     state = 1  # start in hospital
     days_in_hospital = 0
     days_dead = 0
+    death_day = None
     readmitted = False
-    was_home_once = False
 
-    for _ in range(90):
+    for day in range(90):
         if state == 2:          # dead → absorbing
             days_dead += 1
             continue
 
         if state == 1:          # IN_HOSPITAL
             days_in_hospital += 1
-            # Autoregressiveness: staying in hospital is the default;
-            # discharge possible each day
-            if rng.random() < p_die_daily * 1.5:
+            # Single draw ensures death and discharge are mutually exclusive
+            # with exactly the stated probabilities
+            r = rng.random()
+            if r < p_die_daily * 1.5:
                 state = 2
-            elif rng.random() < p_discharge:
+                death_day = day + 1  # 1-indexed day of death
+            elif r < p_die_daily * 1.5 + p_discharge:
                 state = 0
 
         else:                   # HOME (state == 0)
-            was_home_once = True
-            if rng.random() < p_die_daily * 0.5:
+            r = rng.random()
+            if r < p_die_daily * 0.5:
                 state = 2
-            elif rng.random() < p_readmit:
+                death_day = day + 1
+            elif r < p_die_daily * 0.5 + p_readmit:
                 state = 1
                 readmitted = True
 
@@ -259,6 +270,7 @@ def generate_patient(i: int) -> dict:
         "died_90d":       died_90d,
         "readmitted":     readmitted,
         "hospital_days":  hospital_days,
+        "death_day":      death_day,
     }
 
 

@@ -9,9 +9,14 @@ on **Days Alive and Out of Hospital in 90 days post-surgery (DAOH90)**.
 
 DAOH90 is an increasingly used composite outcome in surgical research. It
 captures the 90-day window after surgery and counts days the patient was both
-alive **and** not in hospital. The distribution is characteristically
-bimodal, leptokurtic, and has ties (many patients at the ceiling), making it
-difficult to model with standard parametric approaches.
+alive **and** not in hospital. The real-world distribution is characteristically
+bimodal, leptokurtic, and has ties (many patients reaching the ceiling of 90
+days), making it difficult to model with standard parametric approaches.
+
+This project generates a synthetic cohort where all patients begin in hospital
+on day 1 (post-surgery), so the theoretical maximum DAOH90 is 89 days — there
+is no ceiling tie at 90 in the simulated data. This is noted in the findings
+below.
 
 This project:
 
@@ -28,7 +33,7 @@ This project:
 
 ```bash
 # Install dependencies
-pip install pandas numpy scipy matplotlib seaborn lifelines statsmodels scikit-learn
+pip install pandas numpy scipy matplotlib seaborn lifelines statsmodels
 
 # Step 1 – generate 5 000 synthetic patient records
 python generate_data.py            # writes patient_data.csv
@@ -106,14 +111,14 @@ disparities.
 
 | Variable | Value |
 |---|---|
-| Mean age | 62.8 years |
-| Male / Female | 49 / 51% |
+| Mean age | 62.7 years |
+| Male / Female | 51 / 49% |
 | Elective / Acute | 65 / 35% |
-| 90-day mortality | 13.3% |
-| Readmission rate | 86.8% |
-| Diabetes prevalence | 11.9% |
-| Hypertension prevalence | 18.8% |
-| Rural residence | 24.9% |
+| 90-day mortality | 12.7% |
+| Readmission rate | 86.5% |
+| Diabetes prevalence | 11.8% |
+| Hypertension prevalence | 18.4% |
+| Rural residence | 24.4% |
 
 ---
 
@@ -123,14 +128,14 @@ disparities.
 
 ![DAOH90 distribution](plots/01_daoh90_distribution.png)
 
-The DAOH90 distribution is **left-skewed** (skewness = −1.29) and
-**leptokurtic** (excess kurtosis = 0.99), consistent with a bimodal-like
+The DAOH90 distribution is **left-skewed** (skewness = −1.37) and
+**leptokurtic** (excess kurtosis = 1.28), consistent with a bimodal-like
 pattern. Most patients achieve a high number of days out of hospital, but a
 substantial minority have poor outcomes (near 0 days) due to prolonged
 hospitalisation or death.
 
-- **Mean DAOH90:** 65.3 days &nbsp;|&nbsp; **Median:** 73 days
-- **2.1%** of patients had 0 DAOH90 (continuous hospitalisation or immediate death)
+- **Mean DAOH90:** 65.9 days &nbsp;|&nbsp; **Median:** 73 days
+- **1.9%** of patients had 0 DAOH90 (continuous hospitalisation or immediate death)
 - There is no ceiling at 90 days in this simulation (the maximum simulated is 89
   days), as all patients begin in hospital on day 1.
 
@@ -144,19 +149,19 @@ Surgery type dominates variation in DAOH90:
 
 | Surgery | Mean DAOH90 | Median |
 |---|---|---|
-| Laparoscopic Cholecystectomy | 81.3 d | 84 d |
-| Appendicectomy | 78.6 d | 83 d |
-| Total Hip Replacement | 78.1 d | 81 d |
-| Total Knee Replacement | 77.8 d | 81 d |
-| Spinal Fusion | 70.8 d | 75 d |
-| Nephrectomy | 61.9 d | 67 d |
-| Gastrectomy | 57.8 d | 64 d |
-| Bowel Resection | 56.9 d | 61 d |
-| Coronary Artery Bypass Graft | 48.9 d | 52 d |
-| **Abdominal Aortic Aneurysm Repair** | **44.1 d** | **46 d** |
+| Laparoscopic Cholecystectomy | 80.9 d | 84 d |
+| Appendicectomy | 79.6 d | 83 d |
+| Total Knee Replacement | 78.5 d | 82 d |
+| Total Hip Replacement | 77.5 d | 82 d |
+| Spinal Fusion | 70.8 d | 76 d |
+| Nephrectomy | 63.5 d | 68 d |
+| Gastrectomy | 60.6 d | 66 d |
+| Bowel Resection | 56.3 d | 61 d |
+| Coronary Artery Bypass Graft | 52.3 d | 56 d |
+| **Abdominal Aortic Aneurysm Repair** | **42.3 d** | **45 d** |
 
-ASA grade shows a monotonic decreasing trend with DAOH90 (Grade 1: 68.8 d →
-Grade 5: 57.9 d), and acute admissions have ~2.8 fewer DAOH90 than elective.
+ASA grade shows a monotonic decreasing trend with DAOH90 (Grade 1: 69.1 d →
+Grade 5: 60.3 d), and acute admissions have ~2.2 fewer DAOH90 than elective.
 
 ---
 
@@ -195,20 +200,18 @@ Statistically significant predictors of 90-day mortality (p < 0.05):
 
 | Predictor | HR | 95% CI | p-value | Direction |
 |---|---|---|---|---|
-| Coronary Artery Bypass Graft | 1.70 | 1.42–2.03 | <0.001 | ↑ risk |
-| Abdominal Aortic Aneurysm Repair | 1.58 | 1.32–1.88 | <0.001 | ↑ risk |
-| Gastrectomy | 1.36 | 1.12–1.65 | 0.002 | ↑ risk |
-| Bowel Resection | 1.26 | 1.04–1.53 | 0.019 | ↑ risk |
-| Nephrectomy | 1.25 | 1.03–1.51 | 0.026 | ↑ risk |
-| Total Knee Replacement | 0.71 | 0.57–0.87 | 0.001 | ↓ risk |
-| Total Hip Replacement | 0.68 | 0.55–0.85 | <0.001 | ↓ risk |
-| Laparoscopic Cholecystectomy | 0.64 | 0.51–0.80 | <0.001 | ↓ risk |
+| Abdominal Aortic Aneurysm Repair | 2.12 | 1.78–2.53 | <0.001 | ↑ risk |
+| Coronary Artery Bypass Graft | 1.48 | 1.22–1.78 | <0.001 | ↑ risk |
+| Bowel Resection | 1.38 | 1.14–1.68 | 0.001 | ↑ risk |
+| ASA Grade (per unit ↑) | 1.09 | 1.02–1.16 | 0.009 | ↑ risk |
+| Total Hip Replacement | 0.79 | 0.64–0.97 | 0.028 | ↓ risk |
+| Total Knee Replacement | 0.72 | 0.58–0.89 | 0.003 | ↓ risk |
+| Appendicectomy | 0.72 | 0.58–0.89 | 0.003 | ↓ risk |
 
-**Surgery type** is the dominant predictor of 90-day mortality in this cohort.
-Patient-level factors (age, ASA grade, comorbidities, sex, ethnicity,
-deprivation) showed trends in the expected directions but did not reach
-statistical significance individually, likely because surgery-type risk
-overwhelms these effects in the Cox model at n=5,000.
+**Surgery type** is the dominant predictor of 90-day mortality in this cohort
+(all relative to Laparoscopic Cholecystectomy as the reference, lowest-risk
+procedure). ASA grade is also a significant predictor after accounting for
+surgery type.
 
 ---
 
@@ -216,23 +219,24 @@ overwhelms these effects in the Cox model at n=5,000.
 
 ![OLS coefficient plot](plots/06_ols_coefficient_plot.png)
 
-The OLS model (R² = 0.358) confirms the following **statistically significant**
+The OLS model (R² = 0.352) confirms the following **statistically significant**
 predictors of DAOH90 (all p < 0.05):
 
 | Predictor | β (days) | Direction |
 |---|---|---|
-| Abdominal Aortic Aneurysm Repair | −34.6 | Fewer days |
-| Coronary Artery Bypass Graft | −29.6 | Fewer days |
-| Bowel Resection | −21.6 | Fewer days |
+| Abdominal Aortic Aneurysm Repair | −38.5 | Fewer days |
+| Coronary Artery Bypass Graft | −28.4 | Fewer days |
+| Bowel Resection | −24.6 | Fewer days |
 | Gastrectomy | −20.5 | Fewer days |
-| Nephrectomy | −16.5 | Fewer days |
-| Spinal Fusion | −8.3 | Fewer days |
+| Nephrectomy | −17.6 | Fewer days |
+| Spinal Fusion | −10.0 | Fewer days |
+| Total Hip Replacement | −3.5 | Fewer days |
+| Total Knee Replacement | −2.4 | Fewer days |
+| Current smoker | −2.5 | Fewer days |
 | ASA Grade (per unit ↑) | −1.6 | Fewer days |
-| No. comorbidities (per unit ↑) | −1.6 | Fewer days |
-| Current smoker | −2.0 | Fewer days |
-| Rural residence | −1.4 | Fewer days |
-| Age (per year ↑) | −0.09 | Fewer days |
-| Laparoscopic Cholecystectomy | +2.6 | More days |
+| Rural residence | −1.2 | Fewer days |
+| NZ Deprivation (per decile ↑) | −0.3 | Fewer days |
+| Age (per year ↑) | −0.10 | Fewer days |
 
 **Ethnicity** was not a significant predictor in either model after adjusting for
 other covariates. However, Māori and Pacific patients face higher pre-operative
@@ -272,10 +276,11 @@ rural/deprived areas.
    patients have higher baseline deprivation and comorbidity burden, driving
    indirect disparities.
 
-5. **DAOH90 is leptokurtic and left-skewed,** confirming the distributional
-   challenges described in the problem statement. Standard linear regression is
-   an approximation; beta regression, two-part models, or distributional
-   regression may better capture this outcome in real-world applications.
+5. **DAOH90 is leptokurtic and left-skewed** (skewness −1.37, kurtosis 1.28),
+   confirming the distributional challenges described in the problem statement.
+   Standard linear regression is an approximation; beta regression, two-part
+   models, or distributional regression may better capture this outcome in
+   real-world applications.
 
 ---
 
