@@ -26,7 +26,6 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 import seaborn as sns
-import statsmodels.formula.api as smf
 import statsmodels.api as sm
 from lifelines import KaplanMeierFitter, CoxPHFitter
 from scipy import stats
@@ -44,13 +43,7 @@ SEED  = 42
 sns.set_theme(style="whitegrid", palette="muted")
 
 # ── 0. load data ──────────────────────────────────────────────────────────────
-df = pd.read_csv(DATA_FILE)
-
-# Binary indicator columns
-for col in ["rural", "diabetes", "hypertension", "copd",
-            "cardiac_disease", "renal_disease", "smoker",
-            "died_90d", "readmitted"]:
-    df[col] = df[col].astype(bool)
+df = pd.read_csv(DATA_FILE, true_values=["True"], false_values=["False"])
 
 print(f"Loaded {len(df):,} patient records.\n")
 print("── Column dtypes ──")
@@ -165,10 +158,8 @@ print("SECTION 4 – KAPLAN-MEIER SURVIVAL CURVES")
 print("═" * 60)
 
 # For KM we need a time-to-event column.
-# Use hospital_days as a proxy for "time in hospital" or create
-# a 90-day binary (died_90d).  We treat death as event; DAOH90 as duration.
-# duration = days until death OR 90 (censored)
-df["km_duration"] = np.where(df["died_90d"], 90 - df["daoh90"], 90)
+# duration = day of death (for those who died) OR 90 (censored at end of window)
+df["km_duration"] = np.where(df["died_90d"], df["death_day"], 90)
 df["km_event"]    = df["died_90d"].astype(int)
 
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -222,9 +213,9 @@ eth_dummies = pd.get_dummies(cox_df["ethnicity"], prefix="eth", drop_first=False
 eth_dummies = eth_dummies.drop(columns=["eth_NZ European"], errors="ignore")
 cox_df = pd.concat([cox_df, eth_dummies], axis=1)
 
-# Surgery dummies (reference = Appendicectomy – lowest risk)
+# Surgery dummies (reference = Laparoscopic Cholecystectomy – lowest risk)
 surg_dummies = pd.get_dummies(cox_df["surgery_type"], prefix="surg", drop_first=False)
-surg_dummies = surg_dummies.drop(columns=["surg_Appendicectomy"], errors="ignore")
+surg_dummies = surg_dummies.drop(columns=["surg_Laparoscopic Cholecystectomy"], errors="ignore")
 cox_df = pd.concat([cox_df, surg_dummies], axis=1)
 
 eth_cols  = [c for c in cox_df.columns if c.startswith("eth_")]
@@ -259,10 +250,8 @@ print("═" * 60)
 print("SECTION 6 – OLS REGRESSION FOR DAOH90")
 print("═" * 60)
 
-import statsmodels.api as sm
-
 ols_df = cox_df.copy()
-# clip outcome away from hard boundaries slightly for OLS
+# clip outcome to valid DAOH90 range [0, 90] for OLS
 ols_df["daoh90_clipped"] = np.clip(ols_df["daoh90"], 0, 90)
 
 base_cols = ["age", "female", "nz_dep", "asa_grade", "comorbidities",
