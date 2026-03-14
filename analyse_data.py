@@ -39,6 +39,7 @@ os.makedirs(PLOTS_DIR, exist_ok=True)
 
 ALPHA = 0.05          # significance threshold
 SEED  = 42
+rng_plot = np.random.default_rng(SEED)
 
 sns.set_theme(style="whitegrid", palette="muted")
 
@@ -62,10 +63,18 @@ for col in ["sex", "ethnicity", "surgery_type", "urgency"]:
     pct = df[col].value_counts(normalize=True).mul(100).round(1)
     print(f"  {col}:\n{pct.to_string()}\n")
 
-binary_cols = ["died_90d", "readmitted", "diabetes", "hypertension",
+binary_cols = ["died_90d", "readmitted", "first_night_in_hospital",
+               "diabetes", "hypertension",
                "copd", "cardiac_disease", "renal_disease", "smoker", "rural"]
 print("  Binary outcomes / comorbidities (%):")
 print(df[binary_cols].mean().mul(100).round(1).to_string(), "\n")
+
+print("  Prior 90-day hospitalisation (prev_hosp_90d):")
+prev_h = df["prev_hosp_90d"]
+print(f"    Any prior hosp: {(prev_h > 0).mean()*100:.1f}%  |  "
+      f"Mean (all): {prev_h.mean():.1f}d  |  "
+      f"Mean (if any): {prev_h[prev_h > 0].mean():.1f}d  |  "
+      f"Max: {prev_h.max():.0f}d\n")
 
 # ── 2. DAOH90 distribution ────────────────────────────────────────────────────
 print("═" * 60)
@@ -207,6 +216,7 @@ cox_df = df.copy()
 cox_df["female"]    = (cox_df["sex"] == "Female").astype(int)
 cox_df["acute"]     = (cox_df["urgency"] == "Acute").astype(int)
 cox_df["rural_int"] = cox_df["rural"].astype(int)
+cox_df["first_night_hosp"] = cox_df["first_night_in_hospital"].astype(int)
 
 # Ethnicity dummies (reference = NZ European)
 eth_dummies = pd.get_dummies(cox_df["ethnicity"], prefix="eth", drop_first=False)
@@ -223,7 +233,8 @@ surg_cols = [c for c in cox_df.columns if c.startswith("surg_")]
 
 cox_covs = (
     ["age", "female", "nz_dep", "asa_grade", "comorbidities",
-     "bmi", "acute", "rural_int", "smoker"]
+     "bmi", "acute", "rural_int", "smoker",
+     "prev_hosp_90d", "first_night_hosp"]
     + eth_cols
     + surg_cols
 )
@@ -255,7 +266,8 @@ ols_df = cox_df.copy()
 ols_df["daoh90_clipped"] = np.clip(ols_df["daoh90"], 0, 90)
 
 base_cols = ["age", "female", "nz_dep", "asa_grade", "comorbidities",
-             "bmi", "acute", "rural_int", "smoker"]
+             "bmi", "acute", "rural_int", "smoker",
+             "prev_hosp_90d", "first_night_hosp"]
 
 # Cast all predictor columns to numeric
 for col in base_cols + eth_cols + surg_cols:
@@ -278,10 +290,12 @@ print("SECTION 7 – COMORBIDITY / COVARIATE HEATMAP")
 print("═" * 60)
 
 corr_cols = ["age", "bmi", "nz_dep", "asa_grade", "comorbidities",
-             "daoh90", "hospital_days", "died_90d",
+             "prev_hosp_90d", "daoh90", "hospital_days", "died_90d",
+             "first_night_in_hospital",
              "diabetes", "hypertension", "copd", "cardiac_disease", "renal_disease"]
 corr_df = df[corr_cols].copy()
-for c in ["died_90d", "diabetes", "hypertension", "copd", "cardiac_disease", "renal_disease"]:
+for c in ["died_90d", "first_night_in_hospital",
+          "diabetes", "hypertension", "copd", "cardiac_disease", "renal_disease"]:
     corr_df[c] = corr_df[c].astype(int)
 
 corr_matrix = corr_df.corr()
@@ -316,6 +330,8 @@ label_map = {
     "acute":       "Acute urgency",
     "rural_int":   "Rural residence",
     "smoker":      "Current smoker",
+    "prev_hosp_90d":    "Prior hosp. days (90d pre-surgery)",
+    "first_night_hosp": "First night in hospital",
 }
 for eth in ["NZ European", "Māori", "Pacific", "Asian", "MELAA", "Other"]:
     label_map[f"eth_{eth}"] = f"Ethnicity: {eth}"
@@ -430,7 +446,53 @@ plt.savefig(f"{PLOTS_DIR}/07_deprivation_ethnicity.png", dpi=150)
 plt.close()
 print(f"  → Saved {PLOTS_DIR}/07_deprivation_ethnicity.png\n")
 
-# ── 11. 30/60/90-day mortality summary table ──────────────────────────────────
+# ── 11. First night in hospital & prior hospitalisation vs DAOH90 ─────────────
+print("═" * 60)
+print("SECTION 8 – FIRST NIGHT IN HOSPITAL & PRIOR HOSPITALISATION")
+print("═" * 60)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Box plot: DAOH90 by first_night_in_hospital
+fn_labels = {True: "Yes", False: "No"}
+fn_grps = {fn_labels[k]: v["daoh90"].values
+           for k, v in df.groupby("first_night_in_hospital")}
+axes[0].boxplot([fn_grps.get("No", []), fn_grps.get("Yes", [])],
+                labels=["No (same-day discharge)", "Yes (stayed overnight)"],
+                patch_artist=True,
+                boxprops=dict(facecolor="#4C72B0", alpha=0.6))
+axes[0].set_title("DAOH90 by First Night in Hospital")
+axes[0].set_ylabel("Days Alive & Out of Hospital")
+axes[0].set_xlabel("First postoperative night in hospital")
+
+# Print group means
+for label, grp_df in df.groupby("first_night_in_hospital"):
+    grp_label = "Yes" if label else "No"
+    print(f"  First night in hospital = {grp_label}: "
+          f"n={len(grp_df):,}, mean DAOH90={grp_df['daoh90'].mean():.1f}, "
+          f"median={grp_df['daoh90'].median():.0f}")
+
+# Scatter: prev_hosp_90d vs DAOH90 (with jitter on x for clarity)
+jitter = rng_plot.uniform(-0.3, 0.3, size=len(df))
+axes[1].scatter(df["prev_hosp_90d"] + jitter, df["daoh90"],
+                alpha=0.15, s=6, color="#4C72B0")
+m2, b2, r2, p2, _ = stats.linregress(df["prev_hosp_90d"], df["daoh90"])
+x2 = np.linspace(0, df["prev_hosp_90d"].max(), 100)
+axes[1].plot(x2, m2 * x2 + b2, color="red", linewidth=2,
+             label=f"r={r2:.3f}, p={p2:.4f}")
+axes[1].set_xlabel("Prior 90-day Hospitalisation (days)")
+axes[1].set_ylabel("DAOH90")
+axes[1].set_title("Prior Hospitalisation vs DAOH90")
+axes[1].legend(fontsize=9)
+print(f"\n  Prior hosp. vs DAOH90: r={r2:.3f}, p={p2:.4f}, "
+      f"β={m2:.2f} days DAOH90 per prior hosp. day\n")
+
+plt.tight_layout()
+plt.savefig(f"{PLOTS_DIR}/08_first_night_prior_hosp.png", dpi=150)
+plt.close()
+print(f"  → Saved {PLOTS_DIR}/08_first_night_prior_hosp.png\n")
+
+# ── 13. 30/60/90-day mortality summary table ──────────────────────────────────
 print("═" * 60)
 print("SECTION 9 – MORTALITY SUMMARY BY KEY GROUPS")
 print("═" * 60)
