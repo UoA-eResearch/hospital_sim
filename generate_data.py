@@ -101,6 +101,11 @@ SURGERY_RISK = {
     "Nephrectomy":                     1.8,
 }
 
+# Shape parameter for log-normal LOS distribution.
+# σ=0.6 gives a realistic right-skewed distribution; move here so it is easy
+# to tune and is not recreated for every patient call.
+LOS_SIGMA = 0.6
+
 # NZ ethnicity distribution (prioritised), approximate 2023 census proportions
 ETHNICITY_PROBS = {
     "NZ European": 0.62,
@@ -226,8 +231,7 @@ def generate_patient(i: int) -> dict:
     )
 
     # Log-normal LOS: mean scales with surgery risk and patient health.
-    # Using fixed shape σ=0.6 gives a realistic right-skewed distribution.
-    LOS_SIGMA = 0.6
+    # LOS_SIGMA is defined as a module-level constant (σ=0.6).
     los_mean = np.clip(
         3.0 * surg_risk * (1 + (100 - health_score) / 200), 1.5, 30.0
     )

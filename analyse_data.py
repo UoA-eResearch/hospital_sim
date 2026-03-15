@@ -13,6 +13,12 @@ Sections
 5. Tobit-style (OLS on clipped outcome) regression for DAOH90
 6. Summary of statistically significant predictors
 7. Forest plot of Cox HR and regression coefficients
+8. Forest plot – Cox hazard ratios
+9. OLS coefficient plot
+10. DAOH90 by NZ Deprivation & Ethnicity
+11. First night in hospital & prior hospitalisation vs DAOH90
+12. Key findings summary
+13. 30/60/90-day mortality summary table
 """
 
 import os
@@ -448,19 +454,29 @@ print(f"  → Saved {PLOTS_DIR}/07_deprivation_ethnicity.png\n")
 
 # ── 11. First night in hospital & prior hospitalisation vs DAOH90 ─────────────
 print("═" * 60)
-print("SECTION 8 – FIRST NIGHT IN HOSPITAL & PRIOR HOSPITALISATION")
+print("SECTION 11 – FIRST NIGHT IN HOSPITAL & PRIOR HOSPITALISATION")
 print("═" * 60)
 
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
 # Box plot: DAOH90 by first_night_in_hospital
 fn_labels = {True: "Yes", False: "No"}
+fn_full_labels = {"No": "No (same-day discharge)", "Yes": "Yes (stayed overnight)"}
 fn_grps = {fn_labels[k]: v["daoh90"].values
            for k, v in df.groupby("first_night_in_hospital")}
-axes[0].boxplot([fn_grps.get("No", []), fn_grps.get("Yes", [])],
-                labels=["No (same-day discharge)", "Yes (stayed overnight)"],
-                patch_artist=True,
-                boxprops=dict(facecolor="#4C72B0", alpha=0.6))
+# Only include groups that are actually present to avoid errors on partial cohorts
+present_fn = [(key, fn_grps[key]) for key in ["No", "Yes"]
+              if key in fn_grps and len(fn_grps[key]) > 0]
+if present_fn:
+    axes[0].boxplot(
+        [g[1] for g in present_fn],
+        labels=[fn_full_labels[g[0]] for g in present_fn],
+        patch_artist=True,
+        boxprops=dict(facecolor="#4C72B0", alpha=0.6),
+    )
+else:
+    axes[0].text(0.5, 0.5, "No data", ha="center", va="center",
+                 transform=axes[0].transAxes)
 axes[0].set_title("DAOH90 by First Night in Hospital")
 axes[0].set_ylabel("Days Alive & Out of Hospital")
 axes[0].set_xlabel("First postoperative night in hospital")
@@ -494,7 +510,7 @@ print(f"  → Saved {PLOTS_DIR}/08_first_night_prior_hosp.png\n")
 
 # ── 13. 30/60/90-day mortality summary table ──────────────────────────────────
 print("═" * 60)
-print("SECTION 9 – MORTALITY SUMMARY BY KEY GROUPS")
+print("SECTION 13 – MORTALITY SUMMARY BY KEY GROUPS")
 print("═" * 60)
 
 mort_rows = []
