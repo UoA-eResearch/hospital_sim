@@ -12,7 +12,7 @@ Sections
 4. Cox Proportional-Hazards model for 90-day mortality
 5. Tobit-style (OLS on clipped outcome) regression for DAOH90
 6. Summary of statistically significant predictors
-7. Forest plot of Cox HR and regression coefficients
+7. Comorbidity / covariate heatmap
 8. Forest plot – Cox hazard ratios
 9. OLS coefficient plot
 10. DAOH90 by NZ Deprivation & Ethnicity
@@ -508,29 +508,9 @@ plt.savefig(f"{PLOTS_DIR}/08_first_night_prior_hosp.png", dpi=150)
 plt.close()
 print(f"  → Saved {PLOTS_DIR}/08_first_night_prior_hosp.png\n")
 
-# ── 13. 30/60/90-day mortality summary table ──────────────────────────────────
-print("═" * 60)
-print("SECTION 13 – MORTALITY SUMMARY BY KEY GROUPS")
-print("═" * 60)
-
-mort_rows = []
-for grp_col in ["sex", "ethnicity", "asa_grade", "urgency"]:
-    for grp_val, sub in df.groupby(grp_col):
-        mort_rows.append({
-            "Group":    grp_col,
-            "Category": grp_val,
-            "N":        len(sub),
-            "Died_90d_%": sub["died_90d"].mean() * 100,
-            "Mean_DAOH90": sub["daoh90"].mean(),
-            "Median_DAOH90": sub["daoh90"].median(),
-        })
-
-mort_df = pd.DataFrame(mort_rows)
-print(mort_df.round(2).to_string(index=False), "\n")
-
 # ── 12. Collect key findings ──────────────────────────────────────────────────
 print("═" * 60)
-print("KEY FINDINGS SUMMARY")
+print("SECTION 12 – KEY FINDINGS SUMMARY")
 print("═" * 60)
 
 print("\n  DAOH90 distribution:")
@@ -552,5 +532,25 @@ for idx, pv in ols_sig.items():
     coef = ols_model.params[idx]
     label = label_map.get(idx, idx)
     print(f"    {label}: β={coef:.2f}d, p={pv:.4f}")
+
+# ── 13. 30/60/90-day mortality summary table ──────────────────────────────────
+print("═" * 60)
+print("SECTION 13 – MORTALITY SUMMARY BY KEY GROUPS")
+print("═" * 60)
+
+mort_rows = []
+for grp_col in ["sex", "ethnicity", "asa_grade", "urgency"]:
+    for grp_val, sub in df.groupby(grp_col):
+        mort_rows.append({
+            "Group":    grp_col,
+            "Category": grp_val,
+            "N":        len(sub),
+            "Died_90d_%": sub["died_90d"].mean() * 100,
+            "Mean_DAOH90": sub["daoh90"].mean(),
+            "Median_DAOH90": sub["daoh90"].median(),
+        })
+
+mort_df = pd.DataFrame(mort_rows)
+print(mort_df.round(2).to_string(index=False), "\n")
 
 print("\n  ── Analysis complete. Plots saved to:", PLOTS_DIR)
