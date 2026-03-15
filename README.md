@@ -73,6 +73,7 @@ All output plots are saved to the `plots/` directory.
 | `renal_disease` | Renal disease (bool) |
 | `bmi` | Body-mass index (kg/m²) |
 | `smoker` | Current smoker (bool) |
+| `prev_hosp_90d` | Days hospitalised in the 90 days prior to surgery (0 if none; right-skewed, max ≈ 60) |
 
 **Outcomes:**
 
@@ -82,6 +83,8 @@ All output plots are saved to the `plots/` directory.
 | `died_90d` | Died within 90 days (bool) |
 | `readmitted` | ≥1 readmission within 90 days (bool) |
 | `hospital_days` | Total days spent in hospital in the 90-day window |
+| `first_night_in_hospital` | Still in hospital at the end of surgery day (day 0), i.e. `initial_los ≥ 2` and patient did not die same-day (bool) |
+| `death_day` | Day of death (1–90, 1-indexed) if `died_90d`, else NaN |
 
 ### Simulation methodology
 
@@ -254,6 +257,22 @@ There is a **negative relationship between NZ Deprivation Index and DAOH90**
 have worse post-surgical outcomes. This is consistent with reduced access to
 primary care, higher comorbidity burden, and greater distances to hospital in
 rural/deprived areas.
+
+---
+
+### 8. First night in hospital and prior hospitalisation
+
+![First night and prior hospitalisation](plots/08_first_night_prior_hosp.png)
+
+- **First night in hospital:** Patients who remain in hospital overnight after surgery
+  (i.e. `first_night_in_hospital = True`) have substantially fewer DAOH90 than
+  those discharged on the day of surgery, reflecting the higher acuity or longer
+  index length-of-stay captured by the log-normal LOS model.
+- **Prior 90-day hospitalisation (`prev_hosp_90d`):** Each additional day hospitalised
+  in the 90 days before surgery is associated with a small but statistically significant
+  reduction in post-operative DAOH90 (regression line shown in red). This variable
+  enters the latent health score as a penalty and propagates through to LOS, mortality,
+  and readmission probabilities.
 
 ---
 
